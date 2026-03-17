@@ -31,7 +31,6 @@ import {
 } from "@workspace/api-client-react";
 
 import { Button } from "@/components/Button";
-import { Header } from "@/components/Header";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_SPEC = `import type {TurboModule} from 'react-native';
@@ -104,9 +103,7 @@ export default function Studio() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden">
-      <Header />
-      
+    <div className="flex flex-1 w-full bg-background text-foreground overflow-hidden">
       <div className="flex flex-1 overflow-hidden">
         {/* SIDEBAR */}
         <aside className="w-72 border-r border-border flex flex-col bg-sidebar">

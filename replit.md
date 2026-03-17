@@ -22,12 +22,14 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
 │   ├── api-server/         # Express API server
-│   └── codegen/            # RN Codegen Studio (React + Vite frontend)
+│   ├── codegen/            # RN Codegen Studio (React + Vite frontend)
+│   └── codegen-mobile/     # Expo React Native mobile app
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
+│   ├── db/                 # Drizzle ORM schema + DB connection
+│   └── integrations-openai-ai-server/ # OpenAI AI integration (Replit proxy)
 ├── scripts/                # Utility scripts (single workspace package)
 │   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
 ├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
@@ -60,7 +62,8 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Routes: `src/routes/index.ts` mounts sub-routers
   - `src/routes/health.ts` — `GET /healthz`
   - `src/routes/codegen.ts` — code generation endpoints
-- Depends on: `@workspace/db`, `@workspace/api-zod`
+  - `src/routes/chat.ts` — `POST /codegen/chat` — SSE streaming AI chat endpoint
+- Depends on: `@workspace/db`, `@workspace/api-zod`, `@workspace/integrations-openai-ai-server`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 
 ### `artifacts/codegen` (`@workspace/codegen`)

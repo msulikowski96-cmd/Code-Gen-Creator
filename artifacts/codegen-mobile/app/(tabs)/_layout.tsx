@@ -14,6 +14,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "chevron.left.forwardslash.chevron.right", selected: "chevron.left.forwardslash.chevron.right" }} />
         <Label>Studio</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="chat">
+        <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
+        <Label>AI Chat</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="templates">
         <Icon sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }} />
         <Label>Templates</Label>
@@ -69,12 +73,14 @@ function ClassicTabLayout() {
         name="index"
         options={{
           title: "Studio",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <Ionicons name="code-slash" size={22} color={color} />
-            ) : (
-              <Ionicons name="code-slash" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color }) => <Ionicons name="code-slash" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: "AI Chat",
+          tabBarIcon: ({ color }) => <Ionicons name="sparkles" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
