@@ -70,6 +70,15 @@ export const GeneratedFileLanguage = {
   objc: "objc",
   swift: "swift",
   typescript: "typescript",
+  tsx: "tsx",
+  jsx: "jsx",
+  javascript: "javascript",
+  css: "css",
+  json: "json",
+  xml: "xml",
+  gradle: "gradle",
+  markdown: "markdown",
+  text: "text",
 } as const;
 
 export type GeneratedFilePlatform =

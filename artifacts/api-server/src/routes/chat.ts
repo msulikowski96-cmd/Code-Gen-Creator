@@ -1,10 +1,6 @@
 import { Router, type IRouter } from "express";
 import { ai } from "@workspace/integrations-gemini-ai";
 import { db, generationHistoryTable } from "@workspace/db";
-import {
-  generateNativeModuleFiles,
-  generateNativeComponentFiles,
-} from "../lib/codegenEngine.js";
 
 const router: IRouter = Router();
 
@@ -30,94 +26,179 @@ function validateChatRequest(body: unknown): { messages: ChatMessage[] } | null 
   return { messages };
 }
 
-const SYSTEM_PROMPT = `You are an expert React Native New Architecture engineer specializing in TurboModules (NativeModule) and Fabric Components (NativeComponent). You help developers generate TypeScript specification files for native modules and components.
+const SYSTEM_PROMPT = `You are an expert app developer and AI assistant. You can generate complete, production-ready applications based on user descriptions.
 
-When a user asks you to create, build, or generate a native module or component, you MUST:
+You support THREE generation modes:
 
-1. First, briefly explain what you are going to create (1-2 sentences).
-2. Then output a properly formatted TypeScript specification wrapped in a special code block.
-3. Start the code block with a metadata comment line EXACTLY like this (no spaces around =):
-   \`\`\`typescript
-   // @codegen moduleName=<PascalCase> specType=<NativeModule|NativeComponent> platform=<android|ios|both>
+---
 
-4. Rules for the metadata comment:
-   - moduleName must be PascalCase, e.g. "CameraModule", "BluetoothManager", "LocationService"
-   - specType must be exactly "NativeModule" or "NativeComponent"
-   - platform must be "android", "ios", or "both"
+## MODE 1: React Native Mobile App (iOS + Android)
 
-5. After the metadata comment, write the complete TypeScript spec:
-   - For NativeModule: extends TurboModule with all methods typed
-   - For NativeComponent: uses NativeComponentType with all props typed
-   - Follow React Native New Architecture patterns strictly
-   - Include all necessary imports from 'react-native'
+When the user asks to build a mobile app, create a complete React Native (TypeScript) project.
 
-Example for NativeModule:
-\`\`\`typescript
-// @codegen moduleName=StorageModule specType=NativeModule platform=both
-import type { TurboModule } from 'react-native';
-import { TurboModuleRegistry } from 'react-native';
+Output files using this EXACT format for EACH file:
 
-export interface Spec extends TurboModule {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
-  removeItem(key: string): Promise<void>;
-  clear(): Promise<void>;
-  getAllKeys(): Promise<string[]>;
-}
-
-export default TurboModuleRegistry.getEnforcing<Spec>('StorageModule');
+### FILE: <path/filename> | platform: <android|ios|shared> | language: <language>
+\`\`\`<language>
+<code here>
 \`\`\`
 
-Example for NativeComponent:
-\`\`\`typescript
-// @codegen moduleName=ProgressView specType=NativeComponent platform=both
-import type { ViewProps } from 'react-native';
-import type { Double } from 'react-native/Libraries/Types/CodegenTypes';
-import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
+Example files for a React Native app:
+- ### FILE: App.tsx | platform: shared | language: tsx
+- ### FILE: src/screens/HomeScreen.tsx | platform: shared | language: tsx
+- ### FILE: src/components/Button.tsx | platform: shared | language: tsx
+- ### FILE: src/navigation/AppNavigator.tsx | platform: shared | language: tsx
+- ### FILE: package.json | platform: shared | language: json
+- ### FILE: android/app/build.gradle | platform: android | language: gradle
+- ### FILE: ios/Podfile | platform: ios | language: text
 
-interface NativeProps extends ViewProps {
-  progress: Double;
-  color?: string;
-  trackColor?: string;
+Always include:
+1. App.tsx (root component with navigation)
+2. At least 2-3 screens with realistic UI
+3. package.json with all necessary dependencies
+4. Basic navigation setup (React Navigation)
+5. TypeScript types where needed
+
+---
+
+## MODE 2: Web App (React + TypeScript)
+
+When the user asks to build a website or web app, create a complete React + TypeScript + Vite project.
+
+Output files using the same format:
+- ### FILE: src/App.tsx | platform: shared | language: tsx
+- ### FILE: src/pages/HomePage.tsx | platform: shared | language: tsx
+- ### FILE: src/components/Header.tsx | platform: shared | language: tsx
+- ### FILE: src/index.css | platform: shared | language: css
+- ### FILE: package.json | platform: shared | language: json
+- ### FILE: index.html | platform: shared | language: xml
+
+Always include:
+1. App.tsx with routing
+2. Multiple pages/components
+3. CSS styling (modern, clean design)
+4. package.json
+5. Realistic, functional UI
+
+---
+
+## MODE 3: React Native Native Module / Component (advanced)
+
+When the user specifically asks for a native module, TurboModule, Fabric component, or native bridge code, generate the TypeScript spec AND native implementation files.
+
+File examples:
+- ### FILE: NativeModule.ts | platform: shared | language: typescript  (TypeScript spec)
+- ### FILE: NativeModuleImpl.java | platform: android | language: java
+- ### FILE: NativeModuleImpl.kt | platform: android | language: kotlin
+- ### FILE: NativeModule.h | platform: ios | language: objc
+- ### FILE: NativeModule.mm | platform: ios | language: objc
+
+---
+
+## IMPORTANT RULES
+
+1. ALWAYS generate real, working code — no placeholder comments like "// implement here"
+2. Make the UI beautiful and modern (use Tailwind-style or inline styles)
+3. Include realistic example data so the app looks complete
+4. Choose the right mode based on what the user asked:
+   - "app for iPhone/Android" → MODE 1
+   - "website/web app" → MODE 2
+   - "native module/TurboModule/Fabric" → MODE 3
+5. Before generating files, write ONE short paragraph explaining what you will build
+6. Generate at least 5-8 files for any app
+7. Language values must be one of: tsx, jsx, typescript, javascript, java, kotlin, swift, objc, cpp, css, json, xml, gradle, markdown, text
+
+---
+
+## LANGUAGE REFERENCE
+
+File extension → language value:
+- .tsx → tsx
+- .ts → typescript
+- .jsx → jsx
+- .js → javascript
+- .java → java
+- .kt → kotlin
+- .swift → swift
+- .m / .mm / .h → objc
+- .cpp / .cc → cpp
+- .css → css
+- .json → json
+- .xml / .html → xml
+- .gradle → gradle
+- .md → markdown
+- other → text
+`;
+
+interface ParsedFile {
+  filename: string;
+  platform: "android" | "ios" | "shared";
+  language: string;
+  content: string;
 }
 
-export default codegenNativeComponent<NativeProps>('ProgressView');
-\`\`\`
+function detectLanguageFromFilename(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    tsx: "tsx", ts: "typescript", jsx: "jsx", js: "javascript",
+    java: "java", kt: "kotlin", swift: "swift",
+    m: "objc", mm: "objc", h: "objc",
+    cpp: "cpp", cc: "cpp", c: "cpp",
+    css: "css", json: "json", xml: "xml", html: "xml",
+    gradle: "gradle", md: "markdown",
+  };
+  return map[ext] ?? "text";
+}
 
-After showing the spec, briefly mention what the generated files will include.
+function parseGeneratedFiles(text: string): ParsedFile[] {
+  const files: ParsedFile[] = [];
 
-If the user asks general questions about React Native New Architecture, TurboModules, or Fabric, answer helpfully without generating code unless asked.
+  // Pattern: ### FILE: <path> | platform: <p> | language: <l>\n```<lang>\n<code>\n```
+  const fileBlockRegex =
+    /###\s*FILE:\s*([^\|]+)\s*\|\s*platform:\s*(android|ios|shared)\s*\|\s*language:\s*(\w+)\s*\n```(?:\w+)?\n([\s\S]*?)```/g;
 
-If the user asks to modify or improve a previous spec, generate the updated version in the same format.
-
-Always be concise and focused. Do not add unnecessary explanations.`;
-
-function extractCodegenSpec(text: string): {
-  moduleName: string;
-  specType: "NativeModule" | "NativeComponent";
-  platform: "android" | "ios" | "both";
-  spec: string;
-} | null {
-  const codeBlockRegex = /```typescript\s*\n([\s\S]*?)```/g;
   let match;
+  while ((match = fileBlockRegex.exec(text)) !== null) {
+    const filename = match[1].trim();
+    const platform = match[2].trim() as "android" | "ios" | "shared";
+    const language = match[3].trim();
+    const content = match[4];
 
-  while ((match = codeBlockRegex.exec(text)) !== null) {
-    const blockContent = match[1];
-    const metaMatch = blockContent.match(
-      /\/\/ @codegen moduleName=(\S+)\s+specType=(NativeModule|NativeComponent)\s+platform=(android|ios|both)/
-    );
-
-    if (metaMatch) {
-      return {
-        moduleName: metaMatch[1],
-        specType: metaMatch[2] as "NativeModule" | "NativeComponent",
-        platform: metaMatch[3] as "android" | "ios" | "both",
-        spec: blockContent,
-      };
-    }
+    files.push({ filename, platform, language, content });
   }
 
-  return null;
+  return files;
+}
+
+function detectAppType(files: ParsedFile[]): { appName: string; specType: string; platform: string } {
+  const hasAndroid = files.some((f) => f.platform === "android");
+  const hasIos = files.some((f) => f.platform === "ios");
+  const hasPackageJson = files.some((f) => f.filename === "package.json");
+  const hasAppTsx = files.some((f) => f.filename === "App.tsx" || f.filename.endsWith("App.tsx"));
+
+  // Try to extract app name from package.json
+  let appName = "GeneratedApp";
+  const pkgFile = files.find((f) => f.filename === "package.json");
+  if (pkgFile) {
+    const nameMatch = pkgFile.content.match(/"name"\s*:\s*"([^"]+)"/);
+    if (nameMatch) appName = nameMatch[1];
+  }
+
+  let specType = "WebApp";
+  let platform = "shared";
+
+  if (hasAndroid || hasIos || hasAppTsx) {
+    specType = "ReactNativeApp";
+    if (hasAndroid && hasIos) platform = "both";
+    else if (hasAndroid) platform = "android";
+    else if (hasIos) platform = "ios";
+    else platform = "shared";
+  } else if (hasPackageJson) {
+    specType = "WebApp";
+    platform = "shared";
+  }
+
+  return { appName, specType, platform };
 }
 
 router.post("/codegen/chat", async (req, res): Promise<void> => {
@@ -134,7 +215,6 @@ router.post("/codegen/chat", async (req, res): Promise<void> => {
 
   const { messages } = parsed;
 
-  // Map messages to Gemini format (assistant → model)
   const geminiContents = messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
@@ -148,7 +228,7 @@ router.post("/codegen/chat", async (req, res): Promise<void> => {
       contents: geminiContents,
       config: {
         systemInstruction: SYSTEM_PROMPT,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 32000,
       },
     });
 
@@ -160,27 +240,29 @@ router.post("/codegen/chat", async (req, res): Promise<void> => {
       }
     }
 
-    // Try to extract and run codegen from the response
-    const extracted = extractCodegenSpec(fullResponse);
-    if (extracted) {
-      const { moduleName, specType, platform, spec } = extracted;
+    // Parse generated files from the response
+    const files = parseGeneratedFiles(fullResponse);
 
-      let files;
-      if (specType === "NativeModule") {
-        files = generateNativeModuleFiles(moduleName, platform, spec);
-      } else {
-        files = generateNativeComponentFiles(moduleName, platform, spec);
-      }
+    if (files.length > 0) {
+      // Enrich language from filename if needed
+      const enriched = files.map((f) => ({
+        filename: f.filename,
+        platform: f.platform,
+        language: f.language || detectLanguageFromFilename(f.filename),
+        content: f.content,
+      }));
+
+      const { appName, specType, platform } = detectAppType(enriched);
 
       const [record] = await db
         .insert(generationHistoryTable)
         .values({
-          moduleName,
+          moduleName: appName,
           specType,
           platform,
-          spec,
-          files: JSON.stringify(files),
-          fileCount: files.length,
+          spec: messages[messages.length - 1]?.content ?? "",
+          files: JSON.stringify(enriched),
+          fileCount: enriched.length,
         })
         .returning();
 
@@ -188,10 +270,10 @@ router.post("/codegen/chat", async (req, res): Promise<void> => {
         `data: ${JSON.stringify({
           type: "generated",
           id: record.id,
-          moduleName,
+          moduleName: appName,
           specType,
           platform,
-          files,
+          files: enriched,
           generatedAt: record.generatedAt.toISOString(),
         })}\n\n`
       );
