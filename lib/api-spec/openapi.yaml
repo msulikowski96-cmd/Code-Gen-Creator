@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: API specification for RN Codegen Studio
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: codegen
+    description: Code generation operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,94 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /codegen/generate:
+    post:
+      operationId: generateCode
+      tags: [codegen]
+      summary: Generate native code from spec
+      description: Generates platform-specific native code from a TypeScript spec
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateCodeRequest"
+      responses:
+        "200":
+          description: Generated code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateCodeResponse"
+        "400":
+          description: Invalid spec
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /codegen/templates:
+    get:
+      operationId: listTemplates
+      tags: [codegen]
+      summary: List available spec templates
+      description: Returns a list of pre-built spec templates to start from
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateListResponse"
+  /codegen/history:
+    get:
+      operationId: listHistory
+      tags: [codegen]
+      summary: List generation history
+      description: Returns the history of code generation requests
+      responses:
+        "200":
+          description: Generation history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryListResponse"
+    delete:
+      operationId: clearHistory
+      tags: [codegen]
+      summary: Clear generation history
+      description: Clears all generation history
+      responses:
+        "200":
+          description: History cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /codegen/history/{id}:
+    get:
+      operationId: getHistoryItem
+      tags: [codegen]
+      summary: Get a history item
+      description: Returns a single generation history item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: History item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +122,155 @@ components:
           type: string
       required:
         - status
-
+    GenerateCodeRequest:
+      type: object
+      properties:
+        specType:
+          type: string
+          enum: [NativeModule, NativeComponent]
+          description: Whether this is a native module or native component spec
+        platform:
+          type: string
+          enum: [android, ios, both]
+          description: Target platform for code generation
+        spec:
+          type: string
+          description: TypeScript spec content
+        moduleName:
+          type: string
+          description: Name of the module or component
+      required:
+        - specType
+        - platform
+        - spec
+        - moduleName
+    GenerateCodeResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        moduleName:
+          type: string
+        specType:
+          type: string
+          enum: [NativeModule, NativeComponent]
+        platform:
+          type: string
+          enum: [android, ios, both]
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedFile"
+        generatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - moduleName
+        - specType
+        - platform
+        - files
+        - generatedAt
+    GeneratedFile:
+      type: object
+      properties:
+        filename:
+          type: string
+        language:
+          type: string
+          enum: [java, kotlin, cpp, objc, swift, typescript]
+        platform:
+          type: string
+          enum: [android, ios, shared]
+        content:
+          type: string
+      required:
+        - filename
+        - language
+        - platform
+        - content
+    TemplateListResponse:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/Template"
+      required:
+        - templates
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        specType:
+          type: string
+          enum: [NativeModule, NativeComponent]
+        moduleName:
+          type: string
+        spec:
+          type: string
+      required:
+        - id
+        - name
+        - description
+        - specType
+        - moduleName
+        - spec
+    HistoryListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryItem"
+      required:
+        - items
+    HistoryItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        moduleName:
+          type: string
+        specType:
+          type: string
+          enum: [NativeModule, NativeComponent]
+        platform:
+          type: string
+          enum: [android, ios, both]
+        generatedAt:
+          type: string
+          format: date-time
+        fileCount:
+          type: integer
+      required:
+        - id
+        - moduleName
+        - specType
+        - platform
+        - generatedAt
+        - fileCount
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+      required:
+        - error

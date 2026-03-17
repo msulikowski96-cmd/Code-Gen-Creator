@@ -1,0 +1,9 @@
+packages:
+  "@monaco-editor/react": "Code editor for TypeScript spec and generated output with syntax highlighting"
+  "date-fns": "Human-readable date formatting for history panel"
+  "framer-motion": "Smooth panel transitions, active tab indicators, and layout animations"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility for merging tailwind classes safely"
+notes:
+  - The app uses a dark mode default theme tailored for developer tools
+  - History API endpoint doesn't return full files, so history items show metadata/stats
