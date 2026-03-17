@@ -431,7 +431,7 @@ export default function ChatScreen() {
             <Text style={[styles.headerTitle, { color: theme.text }]}>AI Codegen</Text>
             <View style={styles.headerStatusRow}>
               <View style={[styles.statusDot, { backgroundColor: theme.green }]} />
-              <Text style={[styles.headerStatus, { color: theme.textMuted }]}>gpt-5.2 · React Native Expert</Text>
+              <Text style={[styles.headerStatus, { color: theme.textMuted }]}>Gemini 3 Flash · React Native Expert</Text>
             </View>
           </View>
         </View>

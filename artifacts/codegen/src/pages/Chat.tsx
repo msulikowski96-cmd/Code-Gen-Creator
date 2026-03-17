@@ -442,7 +442,7 @@ export default function Chat() {
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background/50">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500 shadow shadow-green-500/50" />
-          <span className="text-xs text-muted-foreground font-medium">gpt-5.2 · React Native Expert</span>
+          <span className="text-xs text-muted-foreground font-medium">Gemini 3 Flash · React Native Expert</span>
         </div>
         {messages.length > 0 && (
           <Button

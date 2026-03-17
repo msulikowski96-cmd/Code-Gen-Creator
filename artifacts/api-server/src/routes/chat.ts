@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { ai } from "@workspace/integrations-gemini-ai";
 import { db, generationHistoryTable } from "@workspace/db";
 import {
   generateNativeModuleFiles,
@@ -7,6 +7,8 @@ import {
 } from "../lib/codegenEngine.js";
 
 const router: IRouter = Router();
+
+const GEMINI_MODEL = "gemini-3-flash-preview";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -96,7 +98,6 @@ function extractCodegenSpec(text: string): {
   platform: "android" | "ios" | "both";
   spec: string;
 } | null {
-  // Match ```typescript blocks containing @codegen metadata
   const codeBlockRegex = /```typescript\s*\n([\s\S]*?)```/g;
   let match;
 
@@ -133,29 +134,29 @@ router.post("/codegen/chat", async (req, res): Promise<void> => {
 
   const { messages } = parsed;
 
-  const chatMessages = messages.map((m) => ({
-    role: m.role as "user" | "assistant",
-    content: m.content,
+  // Map messages to Gemini format (assistant → model)
+  const geminiContents = messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
   }));
 
   let fullResponse = "";
 
   try {
-    const stream = await openai.chat.completions.create({
-      model: "gpt-5.2",
-      max_completion_tokens: 8192,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...chatMessages,
-      ],
-      stream: true,
+    const stream = await ai.models.generateContentStream({
+      model: GEMINI_MODEL,
+      contents: geminiContents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        maxOutputTokens: 8192,
+      },
     });
 
     for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        fullResponse += content;
-        res.write(`data: ${JSON.stringify({ type: "token", content })}\n\n`);
+      const text = chunk.text;
+      if (text) {
+        fullResponse += text;
+        res.write(`data: ${JSON.stringify({ type: "token", content: text })}\n\n`);
       }
     }
 
@@ -171,7 +172,6 @@ router.post("/codegen/chat", async (req, res): Promise<void> => {
         files = generateNativeComponentFiles(moduleName, platform, spec);
       }
 
-      // Save to history
       const [record] = await db
         .insert(generationHistoryTable)
         .values({
