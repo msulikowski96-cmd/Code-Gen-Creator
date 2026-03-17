@@ -102,6 +102,59 @@ function CopyButton({ content, theme }: { content: string; theme: typeof Colors.
   );
 }
 
+const PLATFORM_TREE_COLORS: Record<string, string> = {
+  android: "#a8ff78",
+  ios: "#78b4ff",
+  shared: "#c678ff",
+};
+
+function FileTreeNode({
+  file,
+  isActive,
+  onPress,
+  theme,
+}: {
+  file: GeneratedFile;
+  isActive: boolean;
+  onPress: () => void;
+  theme: typeof Colors.dark;
+}) {
+  const langColor = LANG_COLORS[file.language] ?? theme.primary;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.treeFile,
+        isActive && {
+          backgroundColor: theme.primary + "18",
+          borderLeftColor: theme.primary,
+          borderLeftWidth: 2,
+        },
+        !isActive && { borderLeftWidth: 2, borderLeftColor: "transparent" },
+      ]}
+    >
+      <View style={[styles.treeFileDot, { backgroundColor: langColor }]} />
+      <Text
+        style={[
+          styles.treeFileName,
+          { color: isActive ? theme.text : theme.textSecondary },
+          isActive && { fontFamily: "Inter_600SemiBold" },
+        ]}
+        numberOfLines={1}
+      >
+        {file.filename}
+      </Text>
+      {isActive && (
+        <View style={[styles.treeActiveBadge, { backgroundColor: langColor + "22" }]}>
+          <Text style={[styles.treeActiveBadgeText, { color: langColor }]}>
+            {LANG_LABELS[file.language] ?? file.language}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 function FileViewer({
   files,
   theme,
@@ -111,102 +164,130 @@ function FileViewer({
   theme: typeof Colors.dark;
   isDark: boolean;
 }) {
-  const [selectedIdx, setSelectedIdx] = useState(0);
-  const selected = files[selectedIdx];
-
-  const platformGroups: Record<string, GeneratedFile[]> = {};
-  files.forEach((f) => {
-    if (!platformGroups[f.platform]) platformGroups[f.platform] = [];
-    platformGroups[f.platform].push(f);
+  const [selected, setSelected] = useState<GeneratedFile>(files[0]);
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>(() => {
+    const state: Record<string, boolean> = {};
+    files.forEach((f) => { state[f.platform] = true; });
+    return state;
   });
+
+  const platformOrder = ["android", "ios", "shared"];
+  const groups: Record<string, GeneratedFile[]> = {};
+  files.forEach((f) => {
+    if (!groups[f.platform]) groups[f.platform] = [];
+    groups[f.platform].push(f);
+  });
+  const platforms = platformOrder.filter((p) => groups[p]?.length);
+
+  const toggleFolder = (p: string) => {
+    Haptics.selectionAsync();
+    setOpenFolders((prev) => ({ ...prev, [p]: !prev[p] }));
+  };
+
+  const langColor = LANG_COLORS[selected.language] ?? theme.primary;
 
   return (
     <View style={{ flex: 1 }}>
-      {/* File tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[styles.tabScroll, { borderBottomColor: theme.border }]}
-        contentContainerStyle={styles.tabScrollContent}
-      >
-        {files.map((f, idx) => {
-          const isActive = idx === selectedIdx;
-          const langColor = LANG_COLORS[f.language] ?? theme.primary;
-          return (
-            <Pressable
-              key={idx}
-              onPress={() => {
-                setSelectedIdx(idx);
-                Haptics.selectionAsync();
-              }}
-              style={[
-                styles.tab,
-                isActive && { borderBottomColor: langColor, borderBottomWidth: 2 },
-              ]}
-            >
-              <View
-                style={[
-                  styles.tabLangDot,
-                  { backgroundColor: langColor + (isActive ? "FF" : "80") },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: isActive ? theme.text : theme.textSecondary },
-                  isActive && { fontFamily: "Inter_600SemiBold" },
-                ]}
-              >
-                {f.filename}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      {/* File info bar */}
-      <View style={[styles.fileInfoBar, { backgroundColor: theme.surfaceElevated, borderBottomColor: theme.border }]}>
-        <View style={styles.fileInfoLeft}>
-          <Ionicons
-            name={PLATFORM_ICON_NAMES[selected.platform] ?? "code-slash"}
-            size={13}
-            color={theme.textMuted}
-          />
-          <Text style={[styles.fileInfoText, { color: theme.textMuted }]}>
-            {PLATFORM_LABELS[selected.platform]}
+      {/* ── File Tree Panel ─────────────────────────────── */}
+      <View style={[styles.treePanel, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        {/* Tree header */}
+        <View style={[styles.treeHeader, { borderBottomColor: theme.border }]}>
+          <Ionicons name="folder-open-outline" size={12} color={theme.textMuted} />
+          <Text style={[styles.treeHeaderText, { color: theme.textMuted }]}>EXPLORER</Text>
+          <Text style={[styles.treeFileCount, { color: theme.textMuted }]}>
+            {files.length} files
           </Text>
-          <View style={[styles.fileInfoDivider, { backgroundColor: theme.border }]} />
-          <View style={[styles.langBadge, { backgroundColor: (LANG_COLORS[selected.language] ?? theme.primary) + "20" }]}>
-            <Text style={[styles.langBadgeText, { color: LANG_COLORS[selected.language] ?? theme.primary }]}>
-              {LANG_LABELS[selected.language] ?? selected.language}
-            </Text>
-          </View>
         </View>
-        <CopyButton content={selected.content} theme={theme} />
+
+        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          {platforms.map((p) => {
+            const folderColor = PLATFORM_TREE_COLORS[p] ?? theme.textMuted;
+            const isOpen = openFolders[p] ?? true;
+            return (
+              <View key={p}>
+                {/* Folder row */}
+                <Pressable
+                  onPress={() => toggleFolder(p)}
+                  style={styles.treeFolder}
+                >
+                  <Ionicons
+                    name={isOpen ? "chevron-down" : "chevron-forward"}
+                    size={11}
+                    color={theme.textMuted}
+                  />
+                  <Ionicons
+                    name={isOpen ? "folder-open" : "folder"}
+                    size={14}
+                    color={folderColor}
+                  />
+                  <Text style={[styles.treeFolderName, { color: folderColor }]}>
+                    {p}
+                  </Text>
+                  <View style={[styles.treeFolderBadge, { backgroundColor: folderColor + "22" }]}>
+                    <Text style={[styles.treeFolderBadgeText, { color: folderColor }]}>
+                      {groups[p].length}
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {/* Files inside folder */}
+                {isOpen && groups[p].map((file, idx) => (
+                  <FileTreeNode
+                    key={`${p}-${idx}`}
+                    file={file}
+                    isActive={selected.filename === file.filename && selected.platform === file.platform}
+                    onPress={() => {
+                      setSelected(file);
+                      Haptics.selectionAsync();
+                    }}
+                    theme={theme}
+                  />
+                ))}
+              </View>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      {/* Code content */}
-      <ScrollView
-        style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        horizontal={false}
-      >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <Text
-            style={[
-              styles.code,
-              {
-                color: theme.text,
-                backgroundColor: theme.surface,
-                fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
-              },
-            ]}
-            selectable
-          >
-            {selected.content}
-          </Text>
+      {/* ── Code Preview Panel ───────────────────────────── */}
+      <View style={{ flex: 1 }}>
+        {/* File info bar */}
+        <View style={[styles.fileInfoBar, { backgroundColor: theme.surfaceElevated, borderBottomColor: theme.border }]}>
+          <View style={styles.fileInfoLeft}>
+            <View style={[styles.treeFileDot, { backgroundColor: langColor, width: 8, height: 8, borderRadius: 4 }]} />
+            <Text style={[styles.fileInfoText, { color: theme.text }]} numberOfLines={1}>
+              {selected.platform}/{selected.filename}
+            </Text>
+          </View>
+          <View style={styles.fileInfoRight}>
+            <View style={[styles.langBadge, { backgroundColor: langColor + "20" }]}>
+              <Text style={[styles.langBadgeText, { color: langColor }]}>
+                {LANG_LABELS[selected.language] ?? selected.language}
+              </Text>
+            </View>
+            <CopyButton content={selected.content} theme={theme} />
+          </View>
+        </View>
+
+        {/* Code content */}
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <Text
+              style={[
+                styles.code,
+                {
+                  color: theme.text,
+                  backgroundColor: theme.surface,
+                  fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
+                },
+              ]}
+              selectable
+            >
+              {selected.content}
+            </Text>
+          </ScrollView>
         </ScrollView>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -457,24 +538,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 8,
   },
-  navCenter: {
-    flex: 1,
-    gap: 2,
-  },
-  navTitle: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-  },
-  navSubtitle: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
-  navAction: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  navCenter: { flex: 1, gap: 2 },
+  navTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  navSubtitle: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  navAction: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   summaryRow: {
     flexDirection: "row",
     gap: 6,
@@ -492,34 +559,59 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
   },
-  chipText: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-  },
-  tabScroll: {
+  chipText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+
+  // ── File Tree ──────────────────────────────────────────
+  treePanel: {
+    maxHeight: 220,
     borderBottomWidth: 1,
   },
-  tabScrollContent: {
-    paddingHorizontal: 12,
-  },
-  tab: {
+  treeHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
   },
-  tabLangDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  treeHeaderText: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+    flex: 1,
   },
-  tabText: {
+  treeFileCount: { fontSize: 10, fontFamily: "Inter_400Regular" },
+  treeFolder: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  treeFolderName: {
     fontSize: 12,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
   },
+  treeFolderBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  treeFolderBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  treeFile: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 6,
+  },
+  treeFileDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
+  treeFileName: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
+  treeActiveBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  treeActiveBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold" },
+
+  // ── File info + code ───────────────────────────────────
   fileInfoBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -527,29 +619,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderBottomWidth: 1,
+    gap: 8,
   },
   fileInfoLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flex: 1,
+    minWidth: 0,
   },
-  fileInfoText: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
+  fileInfoRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
   },
-  fileInfoDivider: {
-    width: 1,
-    height: 12,
-  },
-  langBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  langBadgeText: {
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-  },
+  fileInfoText: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1 },
+  langBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  langBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   copyBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -559,25 +646,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
   },
-  copyBtnText: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-  },
-  code: {
-    fontSize: 12,
-    lineHeight: 20,
-    padding: 16,
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
+  copyBtnText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  code: { fontSize: 12, lineHeight: 20, padding: 16 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   templateInfoBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -586,20 +658,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: 8,
   },
-  templateInfoLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  templateInfoText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
-  templateFooter: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
+  templateInfoLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
+  templateInfoText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  templateFooter: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1 },
   generateBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -608,9 +669,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
   },
-  generateBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    color: "#fff",
-  },
+  generateBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
 });
